@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="exoplayer.bumbums.exoplayerex.MainActivity">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:orientation="horizontal"
+      >
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent">
+            <TextView
+                android:text="extraction view"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+            <com.google.android.exoplayer2.ui.PlayerView
+                app:use_controller="false"
+                android:id="@+id/ev_extract_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                >
+            </com.google.android.exoplayer2.ui.PlayerView>
+        </LinearLayout>
+        <TextureView
+            android:id="@+id/tv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"/>
+        <ImageView
+            android:id="@+id/iv_frame"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            >
+            <com.google.android.exoplayer2.ui.PlayerView
+                android:id="@+id/ev"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                >
+            </com.google.android.exoplayer2.ui.PlayerView>
+            <Button
+                android:layout_gravity="right"
+                android:id="@+id/btn_pick"
+                android:textSize="12dp"
+                android:text="load video"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </FrameLayout>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:orientation="horizontal"
+        >
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center">
+            <EditText
+                android:id="@+id/et_start"
+                android:text="0"
+                android:hint="startPos"
+                android:layout_width="55dp"
+                android:layout_height="50dp"
+                android:gravity="center"
+                />
+            <Button
+                android:text="시작"
+                android:id="@+id/btn_start"
+                android:layout_width="50dp"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="10dp"/>
+            <EditText
+                android:id="@+id/et_end"
+                android:text="0"
+                android:hint="startPos"
+                android:layout_width="55dp"
+                android:layout_height="50dp"
+                android:gravity="center"
+                />
+            <Button
+                android:id="@+id/btn_end"
+                android:text="종료"
+                android:layout_width="50dp"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="10dp"
+                />
+            <TextView
+                android:text="FPS"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <EditText
+                android:id="@+id/et_fps"
+                android:text="10"
+                android:hint="FPS"
+                android:layout_width="55dp"
+                android:layout_height="50dp"
+                android:gravity="center"
+                />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_get_gif"
+            android:background="@color/colorAccent"
+            android:text="추출"
+            android:textColor="@android:color/white"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+
+
+</LinearLayout>
