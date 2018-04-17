@@ -36,10 +36,17 @@
             android:layout_height="match_parent"
             android:layout_weight="1"/>
         <ImageView
+            android:background="@android:color/darker_gray"
             android:id="@+id/iv_frame"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"/>
+        <pl.droidsonroids.gif.GifImageView
+            android:layout_weight="1"
+            android:id="@+id/gif_view"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            />
 
     </LinearLayout>
 

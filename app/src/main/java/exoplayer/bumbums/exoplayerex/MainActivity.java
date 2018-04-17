@@ -7,7 +7,6 @@ import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
@@ -15,11 +14,15 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.google.android.exoplayer2.DefaultLoadControl;
+import com.google.android.exoplayer2.DefaultRenderersFactory;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.LoadControl;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.RenderersFactory;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.decoder.DecoderCounters;
@@ -33,18 +36,24 @@ import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.ui.PlayerView;
+import com.google.android.exoplayer2.upstream.Allocator;
 import com.google.android.exoplayer2.upstream.BandwidthMeter;
 import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.video.VideoRendererEventListener;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 
 import exoplayer.bumbums.exoplayerex.gif.GifEncoder;
+import pl.droidsonroids.gif.GifDrawable;
+import pl.droidsonroids.gif.GifImageView;
+
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "#####";
@@ -57,6 +66,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private PlayerView mPlayerView, mExtractView;
     private SimpleExoPlayer mPlayer, mExtractPlayer;
     private TextureView mTextureView;
+    private GifImageView mGifView;
     private boolean mDuration;
 
     private MediaSource mOrigin;
@@ -87,6 +97,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mFrameView = (ImageView) findViewById(R.id.iv_frame);
         mTextureView = (TextureView) findViewById(R.id.tv);
 
+        mGifView = (GifImageView)findViewById(R.id.gif_view);
+
         // 1. Create a default TrackSelector
         Handler mainHandler = new Handler();
         BandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
@@ -99,11 +111,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mPlayer = ExoPlayerFactory.newSimpleInstance(this, trackSelector);
         mPlayerView.setPlayer(mPlayer);
 
-        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(this, trackSelector);
+/*        RenderersFactory renderersFactory = new DefaultRenderersFactory(this);
+        DefaultAllocator allocator = new DefaultAllocator(true,1,1);
+        LoadControl loadControl = new DefaultLoadControl(
+                allocator,
+                5000,
+                5000,
+                5000,
+                5000,
+                1000,
+                false);
+
+        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(renderersFactory, trackSelector,loadControl);
+        */
+        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(this,trackSelector);
         mExtractView.setPlayer(mExtractPlayer);
         mExtractPlayer.setVideoTextureView(mTextureView);
         mExtractPlayer.addListener(eventListener);
-
     }
 
 
@@ -149,42 +173,56 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //calculate total count of frames we need and delay between frames.
         int fps = Integer.parseInt(mEtFps.getText().toString());
         int neededFrame = (int) (fps * (totalTimeSec));
-        int delayOfFrame = (int) ((double) 1 / fps) * 1000;
+        final int delayOfFrame = (int) (((double) 1 / fps)* 1000) ;
 
-        ArrayList<Long> framePos = new ArrayList<>();
+        final ArrayList<Long> framePos = new ArrayList<>();
 
         //add framePos
         for (long pos = 0; pos < totalTimeMs; pos += totalTimeMs / neededFrame) {
             framePos.add(pos);
         }
 
-        try {
-            //GIF Encoder start
-            GifEncoder gifEncoder = new GifEncoder();
-            gifEncoder.start(outFile.getCanonicalPath());
-            gifEncoder.setDelay(delayOfFrame);
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    File outFile = new File(MainActivity.this.getFilesDir(),"output.gif");
+                    //GIF Encoder start
+                    GifEncoder gifEncoder = new GifEncoder();
+                    gifEncoder.start(outFile.getCanonicalPath());
+                    gifEncoder.setDelay(delayOfFrame);
 
-            for (int i = 0; i < framePos.size(); i++) {
-                //TODO pick target ms and extract frame and addFrame
-                long pos = framePos.get(i);
-                mExtractPlayer.seekTo(pos);
+                    for (int i = 0; i < framePos.size(); i++) {
+                        long pos = framePos.get(i);
+                        mExtractPlayer.seekTo(pos);
 
-                //TODO seekTo is async so have to check it
-                Bitmap bitmap = mTextureView.getBitmap();
-                gifEncoder.addFrame(bitmap);
+                        //TODO seekTo is async so have to check it
+                        final Bitmap bitmap = mTextureView.getBitmap();
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                mFrameView.setImageBitmap(bitmap);
+                            }
+                        });
+                        gifEncoder.addFrame(bitmap);
+                    }
+
+
+                    // Make the gif
+                    gifEncoder.finish();
+
+                    // Add to gallery
+                    Uri picUri = Uri.fromFile(outFile);
+
+                    setGif(picUri);
+
+                } catch (IOException err) {
+
+                }
             }
-
-
-            // Make the gif
-            gifEncoder.finish();
-
-            // Add to gallery
-            Uri picUri = Uri.fromFile(outFile);
-            addToGallery(picUri);
-
-        } catch (IOException err) {
-
-        }
+        });
+       t.start();
 
 
     }
@@ -283,8 +321,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         public void onSeekProcessed() {
-            Log.v(TAG, "onSeekProcessed:" + mPlayer.getCurrentPosition());
+            Log.v(TAG, "onSeekProcessed:" + mExtractPlayer.getCurrentPosition());
         }
     };
 
+    public void setFrame(final Bitmap bitmap){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mFrameView.setImageBitmap(bitmap);
+            }
+        });
+    }
+    public void setGif(final Uri gifUri){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    GifDrawable gifUriDrawable = new GifDrawable(null, gifUri);
+                    gifUriDrawable.setLoopCount(0);
+                    mGifView.setImageDrawable(gifUriDrawable);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
 }
