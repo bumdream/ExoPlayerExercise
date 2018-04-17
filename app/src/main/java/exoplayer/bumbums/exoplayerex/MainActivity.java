@@ -1,9 +1,14 @@
 package exoplayer.bumbums.exoplayerex;
 
+import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -45,12 +50,17 @@ import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.video.VideoRendererEventListener;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-import exoplayer.bumbums.exoplayerex.gif.GifEncoder;
+import exoplayer.bumbums.exoplayerex.GifEncoder;
 import pl.droidsonroids.gif.GifDrawable;
 import pl.droidsonroids.gif.GifImageView;
 
@@ -68,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextureView mTextureView;
     private GifImageView mGifView;
     private boolean mDuration;
+
 
     private MediaSource mOrigin;
 
@@ -186,10 +197,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void run() {
                 try {
-                    File outFile = new File(MainActivity.this.getFilesDir(),"output.gif");
+
                     //GIF Encoder start
                     GifEncoder gifEncoder = new GifEncoder();
-                    gifEncoder.start(outFile.getCanonicalPath());
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    gifEncoder.start(bos);
                     gifEncoder.setDelay(delayOfFrame);
 
                     for (int i = 0; i < framePos.size(); i++) {
@@ -208,14 +220,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         gifEncoder.addFrame(bitmap);
                     }
 
-
                     // Make the gif
                     gifEncoder.finish();
+
+                    // Make file
+                    File root = android.os.Environment.getExternalStorageDirectory();
+                    File dir = new File (root.getAbsolutePath() + "/gif");
+                    if(!dir.exists())
+                        dir.mkdir();
+                    File outFile = new File(dir,"output.gif");
+
+                    FileOutputStream fos = null;
+                    try {
+                        fos = new FileOutputStream(outFile);
+                        // Put data in your baos
+                        bos.writeTo(fos);
+                    } catch(IOException ioe) {
+                        // Handle exception here
+                        ioe.printStackTrace();
+                    } finally {
+                        fos.close();
+                    }
 
                     // Add to gallery
                     Uri picUri = Uri.fromFile(outFile);
 
                     setGif(picUri);
+                    addImageToGallery(picUri);
+                    shareGif(picUri);
 
                 } catch (IOException err) {
 
@@ -265,6 +297,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.v(TAG, "onDestroy()...");
         mPlayer.release();
         mExtractPlayer.release();
+    }
+
+
+    public void setFrame(final Bitmap bitmap){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mFrameView.setImageBitmap(bitmap);
+            }
+        });
+    }
+    public void setGif(final Uri gifUri){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    GifDrawable gifUriDrawable = new GifDrawable(null, gifUri);
+                    gifUriDrawable.setLoopCount(0);
+                    mGifView.setImageDrawable(gifUriDrawable);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    public void addImageToGallery(Uri gifUri) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/gif");
+        values.put(MediaStore.MediaColumns.DATA, gifUri.getPath());
+
+        getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+    }
+
+
+    public void shareGif(Uri gifUri) {
+        //sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.parse("file://" + Environment.getExternalStorageDirectory())));
+        Intent shareIntent = new Intent(android.content.Intent.ACTION_SEND);
+        shareIntent.setType("image/gif");
+        shareIntent.putExtra(Intent.EXTRA_STREAM, gifUri);
+        startActivity(Intent.createChooser(shareIntent, "Share image"));
     }
 
     Player.EventListener eventListener = new Player.EventListener() {
@@ -325,26 +400,5 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     };
 
-    public void setFrame(final Bitmap bitmap){
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mFrameView.setImageBitmap(bitmap);
-            }
-        });
-    }
-    public void setGif(final Uri gifUri){
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    GifDrawable gifUriDrawable = new GifDrawable(null, gifUri);
-                    gifUriDrawable.setLoopCount(0);
-                    mGifView.setImageDrawable(gifUriDrawable);
-                }catch (Exception e){
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
+
 }
