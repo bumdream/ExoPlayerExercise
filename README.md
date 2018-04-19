@@ -2,6 +2,8 @@
 
 <p >
 	<img src="output.gif", width="200">
+	<img src="screenshot.jpeg", width="200">
+
 </p>
 
 ### Logic
