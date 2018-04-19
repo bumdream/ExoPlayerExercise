@@ -1,12 +1,11 @@
-# GifExtractor with Exoplayer 
+## GifExtractor with Exoplayer 
 
-## Features
+<p >
+	<img src="output.gif", width="200">
+</p>
+
+### Features
 
 -  use TextureView to grab frames at specific position.
 -  use VideoListener to prevent seekTo() method from being ignored.
 
-## Results
-
-<p align="center">
-	<img src="output.png", width="360">
-</p>
