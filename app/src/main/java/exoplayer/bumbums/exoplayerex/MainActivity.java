@@ -1,12 +1,9 @@
 package exoplayer.bumbums.exoplayerex;
 
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
-import android.os.Environment;
 import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
@@ -19,53 +16,29 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import com.google.android.exoplayer2.DefaultLoadControl;
-import com.google.android.exoplayer2.DefaultRenderersFactory;
-import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
-import com.google.android.exoplayer2.Format;
-import com.google.android.exoplayer2.LoadControl;
-import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.RenderersFactory;
 import com.google.android.exoplayer2.SimpleExoPlayer;
-import com.google.android.exoplayer2.Timeline;
-import com.google.android.exoplayer2.decoder.DecoderCounters;
 import com.google.android.exoplayer2.source.ClippingMediaSource;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
-import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.ui.PlayerView;
-import com.google.android.exoplayer2.upstream.Allocator;
 import com.google.android.exoplayer2.upstream.BandwidthMeter;
 import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
-import com.google.android.exoplayer2.video.VideoRendererEventListener;
+import com.google.android.exoplayer2.video.VideoListener;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Iterator;
-
-import exoplayer.bumbums.exoplayerex.GifEncoder;
 import pl.droidsonroids.gif.GifDrawable;
 import pl.droidsonroids.gif.GifImageView;
 
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, GifExtractor.Hanlder{
     private static final String TAG = "#####";
 
     private static final int REQUEST_TAKE_GALLERY_VIDEO = 1;
@@ -74,13 +47,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private EditText mEtStart, mEtEnd, mEtFps;
     private ImageView mFrameView;
     private PlayerView mPlayerView, mExtractView;
-    private SimpleExoPlayer mPlayer, mExtractPlayer;
+    private SimpleExoPlayer mPlayer;
     private TextureView mTextureView;
     private GifImageView mGifView;
     private boolean mDuration;
 
-
     private MediaSource mOrigin;
+
+    private GifExtractor mExtractor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,13 +79,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mPlayerView = (PlayerView) findViewById(R.id.ev);
         mExtractView = (PlayerView) findViewById(R.id.ev_extract_view);
+
         mFrameView = (ImageView) findViewById(R.id.iv_frame);
         mTextureView = (TextureView) findViewById(R.id.tv);
 
-        mGifView = (GifImageView)findViewById(R.id.gif_view);
+        mGifView = (GifImageView) findViewById(R.id.gif_view);
 
         // 1. Create a default TrackSelector
-        Handler mainHandler = new Handler();
         BandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
         TrackSelection.Factory videoTrackSelectionFactory =
                 new AdaptiveTrackSelection.Factory(bandwidthMeter);
@@ -121,24 +95,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         // 2. Create the mPlayer
         mPlayer = ExoPlayerFactory.newSimpleInstance(this, trackSelector);
         mPlayerView.setPlayer(mPlayer);
-
-/*        RenderersFactory renderersFactory = new DefaultRenderersFactory(this);
-        DefaultAllocator allocator = new DefaultAllocator(true,1,1);
-        LoadControl loadControl = new DefaultLoadControl(
-                allocator,
-                5000,
-                5000,
-                5000,
-                5000,
-                1000,
-                false);
-
-        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(renderersFactory, trackSelector,loadControl);
-        */
-        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(this,trackSelector);
-        mExtractView.setPlayer(mExtractPlayer);
-        mExtractPlayer.setVideoTextureView(mTextureView);
-        mExtractPlayer.addListener(eventListener);
     }
 
 
@@ -147,7 +103,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (view.getId()) {
             case R.id.btn_pick:
                 //Pick video from internal storage
-
                 Intent intent = new Intent();
                 intent.setType("video/*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
@@ -161,15 +116,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn_get_gif:
                 if (mOrigin != null) {
-                    //it is for duration sync
-                    mDuration = false;
-
-                    long startPos = Long.parseLong(mEtStart.getText().toString());
-                    long endPos = Long.parseLong(mEtEnd.getText().toString());
-                    ClippingMediaSource extractedSource = new ClippingMediaSource(mOrigin, startPos * 1000, endPos * 1000);
-                    mExtractPlayer.prepare(extractedSource);
-
-                    //if prepare finish , function makeGIF() will run.
+                    if(mExtractor!=null)
+                        mExtractor.release();
+                    mExtractor = new GifExtractor(this,mExtractView,mTextureView);
+                    mExtractor.setFps(Integer.parseInt(mEtFps.getText().toString()));
+                    mExtractor.run(getExtractedVideo());
                 } else {
                     Toast.makeText(this, "no video", Toast.LENGTH_SHORT).show();
                 }
@@ -177,89 +128,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         }
     }
-
-    public void makeGIF() {
-        long totalTimeMs = mExtractPlayer.getDuration();
-        double totalTimeSec = (float) totalTimeMs / 1000;
-        //calculate total count of frames we need and delay between frames.
-        int fps = Integer.parseInt(mEtFps.getText().toString());
-        int neededFrame = (int) (fps * (totalTimeSec));
-        final int delayOfFrame = (int) (((double) 1 / fps)* 1000) ;
-
-        final ArrayList<Long> framePos = new ArrayList<>();
-
-        //add framePos
-        for (long pos = 0; pos < totalTimeMs; pos += totalTimeMs / neededFrame) {
-            framePos.add(pos);
-        }
-
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-
-                    //GIF Encoder start
-                    GifEncoder gifEncoder = new GifEncoder();
-                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                    gifEncoder.start(bos);
-                    gifEncoder.setDelay(delayOfFrame);
-
-                    for (int i = 0; i < framePos.size(); i++) {
-                        long pos = framePos.get(i);
-                        mExtractPlayer.seekTo(pos);
-
-                        //TODO seekTo is async so have to check it
-                        final Bitmap bitmap = mTextureView.getBitmap();
-
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                mFrameView.setImageBitmap(bitmap);
-                            }
-                        });
-                        gifEncoder.addFrame(bitmap);
-                    }
-
-                    // Make the gif
-                    gifEncoder.finish();
-
-                    // Make file
-                    File root = android.os.Environment.getExternalStorageDirectory();
-                    File dir = new File (root.getAbsolutePath() + "/gif");
-                    if(!dir.exists())
-                        dir.mkdir();
-                    File outFile = new File(dir,"output.gif");
-
-                    FileOutputStream fos = null;
-                    try {
-                        fos = new FileOutputStream(outFile);
-                        // Put data in your baos
-                        bos.writeTo(fos);
-                    } catch(IOException ioe) {
-                        // Handle exception here
-                        ioe.printStackTrace();
-                    } finally {
-                        fos.close();
-                    }
-
-                    // Add to gallery
-                    Uri picUri = Uri.fromFile(outFile);
-
-                    setGif(picUri);
-                    addImageToGallery(picUri);
-                    shareGif(picUri);
-
-                } catch (IOException err) {
-
-                }
-            }
-        });
-       t.start();
-
-
-    }
-
-
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -290,17 +158,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         Log.v(TAG, "onDestroy()...");
         mPlayer.release();
-        mExtractPlayer.release();
     }
 
 
-    public void setFrame(final Bitmap bitmap){
+    public void setFrame(final Bitmap bitmap) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -308,7 +174,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         });
     }
-    public void setGif(final Uri gifUri){
+
+    public void setGif(final Uri gifUri) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -316,7 +183,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     GifDrawable gifUriDrawable = new GifDrawable(null, gifUri);
                     gifUriDrawable.setLoopCount(0);
                     mGifView.setImageDrawable(gifUriDrawable);
-                }catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -342,63 +209,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         startActivity(Intent.createChooser(shareIntent, "Share image"));
     }
 
-    Player.EventListener eventListener = new Player.EventListener() {
-        @Override
-        public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {
-            Log.v(TAG, "onTimelineChanged:" + timeline.toString());
-        }
 
-        @Override
-        public void onTracksChanged(TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {
 
-        }
 
-        @Override
-        public void onLoadingChanged(boolean isLoading) {
-            Log.v(TAG, "onLoadingChanged:" + isLoading);
-        }
+    public MediaSource getExtractedVideo() {
+        long startPos = Long.parseLong(mEtStart.getText().toString());
+        long endPos = Long.parseLong(mEtEnd.getText().toString());
+        ClippingMediaSource extractedSource = new ClippingMediaSource(mOrigin, startPos * 1000, endPos * 1000);
+        return extractedSource;
+    }
 
-        @Override
-        public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+    @Override
+    public void onExtractionFinished(Uri gifUri) {
+        setGif(gifUri);
+        addImageToGallery(gifUri);
+        shareGif(gifUri);
+    }
 
-            // when prepare finished come here!
-            if (playbackState == Player.STATE_READY && !mDuration) {
-                mDuration = true;
-                makeGIF();
-            }
-        }
-
-        @Override
-        public void onRepeatModeChanged(int repeatMode) {
-
-        }
-
-        @Override
-        public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-
-        }
-
-        @Override
-        public void onPlayerError(ExoPlaybackException error) {
-
-        }
-
-        @Override
-        public void onPositionDiscontinuity(int reason) {
-
-        }
-
-        @Override
-        public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
-            Log.v(TAG, "onPlaybackParametersChanged:" + playbackParameters.toString());
-
-        }
-
-        @Override
-        public void onSeekProcessed() {
-            Log.v(TAG, "onSeekProcessed:" + mExtractPlayer.getCurrentPosition());
-        }
-    };
+    @Override
+    public void onFrameExtracted(Bitmap frame) {
+        setFrame(frame);
+    }
 
 
 }
