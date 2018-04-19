@@ -31,23 +31,60 @@
                 >
             </com.google.android.exoplayer2.ui.PlayerView>
         </LinearLayout>
-        <TextureView
-            android:id="@+id/tv"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="2"/>
-        <ImageView
-            android:background="@android:color/darker_gray"
-            android:id="@+id/iv_frame"
+            android:layout_weight="2"
+            android:orientation="vertical">
+            <TextView
+                android:text="TEXTUREVIEW"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+            <TextureView
+                android:id="@+id/tv"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                />
+        </LinearLayout>
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"/>
-        <pl.droidsonroids.gif.GifImageView
             android:layout_weight="1"
-            android:id="@+id/gif_view"
+            android:orientation="vertical">
+            <TextView
+                android:text="FRAME"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+            <ImageView
+                android:background="@android:color/darker_gray"
+                android:id="@+id/iv_frame"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+            />
+        </LinearLayout>
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            />
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:text="GIF"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+            <pl.droidsonroids.gif.GifImageView
+                android:id="@+id/gif_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                />
+        </LinearLayout>
+
+
 
     </LinearLayout>
 
