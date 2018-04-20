@@ -18,4 +18,8 @@
 -  use TextureView to grab frames at specific position.
 -  use VideoListener to prevent seekTo() method from being ignored.
 
+### Todo list
 
+1. change TextureView to SurfaceView
+2. custom controlview
+3. UI design
