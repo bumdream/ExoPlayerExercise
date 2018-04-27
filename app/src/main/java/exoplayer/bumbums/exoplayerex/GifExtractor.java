@@ -3,7 +3,6 @@ package exoplayer.bumbums.exoplayerex;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.util.Log;
 import android.view.TextureView;
 
 import com.google.android.exoplayer2.ExoPlaybackException;
@@ -14,77 +13,67 @@ import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
-import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
-import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
-import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.ui.PlayerView;
-import com.google.android.exoplayer2.upstream.BandwidthMeter;
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.video.VideoListener;
 
-import org.w3c.dom.Text;
-
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.logging.Handler;
 
 /**
  * Created by hanseungbeom on 2018. 4. 19..
  */
 
 public class GifExtractor implements VideoListener, Player.EventListener {
-    private Context mContext;
+
+    //callback
     private Hanlder mHandler;
+
+    //about exoplayer
     private SimpleExoPlayer mExtractPlayer;
     private PlayerView mPlayerView;
     private TextureView mTextureView;
 
+    //about gif encoder
     private GifEncoder mGifEncoder;
     private Queue<Long> mFramePos;
+
+    //about making gif to file.
     private ByteArrayOutputStream mBaos;
+
+    //fps
     private int mFps;
+
+    //this flag for checking if extractor init or not
     private boolean isInitialize;
 
-    private boolean mDuration = false;
+    //this flag for checking if video loaded or not
+    private boolean mDuration;
 
+    /* interface */
     public interface Hanlder {
+        /* This method is called after creating gif file. */
         void onExtractionFinished(Uri gifUri);
-
+        /* This method is called whenever extract frame from video */
         void onFrameExtracted(Bitmap frame);
     }
 
+    /* constructor */
     public GifExtractor(Context context,PlayerView playerView, TextureView textureView) {
-        mContext = context;
         mHandler = (Hanlder) context;
+
+        /* exoplayer setting */
         mPlayerView = playerView;
         mTextureView = textureView;
-
-        BandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-        TrackSelection.Factory videoTrackSelectionFactory =
-                new AdaptiveTrackSelection.Factory(bandwidthMeter);
-        TrackSelector trackSelector =
-                new DefaultTrackSelector(videoTrackSelectionFactory);
-
-        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(context, trackSelector);
+        mExtractPlayer = ExoPlayerFactory.newSimpleInstance(context, Utils.getDefaultTrackSelector());
         mPlayerView.setPlayer(mExtractPlayer);
         mExtractPlayer.setVideoTextureView(mTextureView);
         mExtractPlayer.getVideoComponent().addVideoListener(this);
         mExtractPlayer.addListener(this);
-
         mExtractPlayer.setPlayWhenReady(false);
+
         isInitialize = false;
-    }
-
-
-    public void run(MediaSource targetVideo) {
-        mDuration = false;
-        mExtractPlayer.prepare(targetVideo);
     }
 
     public void initEncoder() {
@@ -107,6 +96,11 @@ public class GifExtractor implements VideoListener, Player.EventListener {
         mGifEncoder.setDelay(delayOfFrame);
         isInitialize = true;
     }
+    
+    public void run(MediaSource targetVideo) {
+        mDuration = false;
+        mExtractPlayer.prepare(targetVideo);
+    }
 
     public void startExtract() {
         continueExtraction();
@@ -125,46 +119,7 @@ public class GifExtractor implements VideoListener, Player.EventListener {
         }
     }
 
-    public Bitmap getCurrentFrame() {
-        return mTextureView.getBitmap();
-    }
-
-    public Uri getGifUri() {
-        File root = android.os.Environment.getExternalStorageDirectory();
-        File dir = new File(root.getAbsolutePath() + "/gif");
-        if (!dir.exists())
-            dir.mkdir();
-        File outFile = new File(dir, "output.gif");
-
-        FileOutputStream fos = null;
-        try {
-            fos = new FileOutputStream(outFile);
-            // Put data in your baos
-            mBaos.writeTo(fos);
-        } catch (IOException ioe) {
-            // Handle exception here
-            ioe.printStackTrace();
-        } finally {
-            try {
-                fos.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return Uri.fromFile(outFile);
-    }
-
-    public void setFps(int fps) {
-        mFps = fps;
-    }
-
-
-    @Override
-    public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees, float pixelWidthHeightRatio) {
-
-    }
-
+    /* this method is called when exoplayer view changed */
     @Override
     public void onRenderedFirstFrame() {
         if (isInitialize) {
@@ -176,28 +131,16 @@ public class GifExtractor implements VideoListener, Player.EventListener {
             }
             else{
                 mGifEncoder.finish();
-                mHandler.onExtractionFinished(getGifUri());
+                mHandler.onExtractionFinished(Utils.makeGifFile(mBaos));
             }
         }
 
     }
 
-    @Override
-    public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {
-    }
-
-    @Override
-    public void onTracksChanged(TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {
-
-    }
-
-    @Override
-    public void onLoadingChanged(boolean isLoading) {
-    }
 
     @Override
     public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-        // when prepare finished come here!
+        /* when prepare finished come here! */
         if (playbackState == Player.STATE_READY && !mDuration) {
             mDuration = true;
             initEncoder();
@@ -205,38 +148,47 @@ public class GifExtractor implements VideoListener, Player.EventListener {
         }
     }
 
-    @Override
-    public void onRepeatModeChanged(int repeatMode) {
-
-    }
-
-    @Override
-    public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-
-    }
-
-    @Override
-    public void onPlayerError(ExoPlaybackException error) {
-
-    }
-
-    @Override
-    public void onPositionDiscontinuity(int reason) {
-
-    }
-
-    @Override
-    public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
-
-    }
-
-    @Override
-    public void onSeekProcessed() {
-    }
-
     public void release(){
         mExtractPlayer.release();
     }
+
+    public void setFps(int fps) {
+        mFps = fps;
+    }
+
+    public Bitmap getCurrentFrame() {
+        return mTextureView.getBitmap();
+    }
+
+    @Override
+    public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees, float pixelWidthHeightRatio) {}
+
+    @Override
+    public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {}
+
+    @Override
+    public void onTracksChanged(TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {}
+
+    @Override
+    public void onLoadingChanged(boolean isLoading) {}
+
+    @Override
+    public void onRepeatModeChanged(int repeatMode) {}
+
+    @Override
+    public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {}
+
+    @Override
+    public void onPlayerError(ExoPlaybackException error) {}
+
+    @Override
+    public void onPositionDiscontinuity(int reason) {}
+
+    @Override
+    public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {}
+
+    @Override
+    public void onSeekProcessed() {}
 
 
 }

@@ -1,9 +1,8 @@
 package exoplayer.bumbums.exoplayerex;
 
-/**
- * Created by hanseungbeom on 2018. 4. 18..
- */
-
+/*
+* https://github.com/nbadal/android-gif-encoder
+*/
 
 import java.io.IOException;
 import java.io.OutputStream;
