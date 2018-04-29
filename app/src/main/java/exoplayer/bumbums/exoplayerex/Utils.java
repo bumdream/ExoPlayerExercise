@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.provider.MediaStore;
 
+import com.google.android.exoplayer2.SeekParameters;
 import com.google.android.exoplayer2.source.ClippingMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
@@ -20,6 +21,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import static com.google.android.exoplayer2.C.msToUs;
+
 /**
  * Created by hanseungbeom on 2018. 4. 27..
  */
@@ -28,7 +31,7 @@ public class Utils {
 
     /* get ClippingMediaSource from startPos to endPos */
     public static MediaSource getExtractedVideo(MediaSource source, long startPos, long endPos) {
-        return new ClippingMediaSource(source, startPos * 1000, endPos * 1000);
+        return new ClippingMediaSource(source, msToUs(startPos), msToUs(endPos));
     }
 
     /* get default trackSelector */
@@ -83,5 +86,12 @@ public class Utils {
         return Uri.fromFile(outFile);
     }
 
+    public static int getSecFromMs(long milliseconds){
+        return (int) (milliseconds / 1000) % 60 ;
+    }
+
+    public static int getDelayOfFrame(int fps){
+       return (int) (((double) 1 / fps) * 1000);
+    }
 
 }

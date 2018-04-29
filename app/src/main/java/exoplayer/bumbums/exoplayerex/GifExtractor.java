@@ -3,12 +3,14 @@ package exoplayer.bumbums.exoplayerex;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.util.Log;
 import android.view.TextureView;
 
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.SeekParameters;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.source.MediaSource;
@@ -21,11 +23,15 @@ import java.io.ByteArrayOutputStream;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import static com.google.android.exoplayer2.C.msToUs;
+
 /**
  * Created by hanseungbeom on 2018. 4. 19..
  */
 
 public class GifExtractor implements VideoListener, Player.EventListener {
+
+    private final String TAG = "#####";
 
     //callback
     private Hanlder mHandler;
@@ -68,7 +74,7 @@ public class GifExtractor implements VideoListener, Player.EventListener {
         mTextureView = textureView;
         mExtractPlayer = ExoPlayerFactory.newSimpleInstance(context, Utils.getDefaultTrackSelector());
         mPlayerView.setPlayer(mExtractPlayer);
-        mExtractPlayer.setVideoTextureView(mTextureView);
+        mExtractPlayer.setVideoTextureView(mTextureView); //it links SimpleExoPlayer's view to textureview
         mExtractPlayer.getVideoComponent().addVideoListener(this);
         mExtractPlayer.addListener(this);
         mExtractPlayer.setPlayWhenReady(false);
@@ -78,65 +84,63 @@ public class GifExtractor implements VideoListener, Player.EventListener {
 
     public void initEncoder() {
         int totalTimeMs = (int) mExtractPlayer.getDuration();
-        double totalTimeSec = (float) totalTimeMs / 1000;
+
         //calculate total count of frames we need and delay between frames.
-        int neededFrame = (int) (mFps * (totalTimeSec));
-        int delayOfFrame = (int) (((double) 1 / mFps) * 1000);
+        int neededFrame = (mFps * (Utils.getSecFromMs(totalTimeMs)));
+        int addRate = totalTimeMs / neededFrame;
+
+        //it makes seekTo() method faster. it choose frame from (position - addRate/2) to (position + addRate/2).
+        mExtractPlayer.setSeekParameters(new SeekParameters(msToUs(addRate/2),msToUs(addRate/2)));
 
         mFramePos = new LinkedList<>();
 
         //calculate frame Position needed
-        for (long pos = 0; pos < totalTimeMs-100; pos += totalTimeMs / neededFrame) {
+        //ensure the onRenderedFirstTime() is always called
+        for (long pos = addRate; pos < totalTimeMs-addRate; pos += addRate) {
             mFramePos.add(pos);
         }
 
         mGifEncoder = new GifEncoder();
         mBaos = new ByteArrayOutputStream();
         mGifEncoder.start(mBaos);
-        mGifEncoder.setDelay(delayOfFrame);
+        mGifEncoder.setDelay(Utils.getDelayOfFrame(mFps));
         isInitialize = true;
     }
-    
+
     public void run(MediaSource targetVideo) {
         mDuration = false;
         mExtractPlayer.prepare(targetVideo);
     }
 
     public void startExtract() {
-        continueExtraction();
+        pullNextPosAndSeekTo();
     }
 
-    public void continueExtraction( ) {
+    public void pullNextPosAndSeekTo( ) {
+        Log.d(TAG,"pullNextPosAndSeek..");
         if (!mFramePos.isEmpty()) {
             long nextPos = mFramePos.poll();
-            if(nextPos==0) {
-                //when pos == 0 seekTo() method dones't call renderFirstFrame() .
-                mExtractPlayer.seekTo(1);
-            }
-            else {
-                mExtractPlayer.seekTo(nextPos);
-            }
+            mExtractPlayer.seekTo(nextPos);
         }
     }
 
     /* this method is called when exoplayer view changed */
     @Override
     public void onRenderedFirstFrame() {
+        Log.d(TAG,"onRenderedFirstFrame..");
         if (isInitialize) {
             if (!mFramePos.isEmpty()) {
                 Bitmap frame = getCurrentFrame();
                 mGifEncoder.addFrame(frame);
                 mHandler.onFrameExtracted(frame);
-                continueExtraction();
+                pullNextPosAndSeekTo();
             }
             else{
                 mGifEncoder.finish();
                 mHandler.onExtractionFinished(Utils.makeGifFile(mBaos));
             }
         }
-
     }
-
 
     @Override
     public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
@@ -147,6 +151,8 @@ public class GifExtractor implements VideoListener, Player.EventListener {
             startExtract();
         }
     }
+
+
 
     public void release(){
         mExtractPlayer.release();
@@ -189,6 +195,4 @@ public class GifExtractor implements VideoListener, Player.EventListener {
 
     @Override
     public void onSeekProcessed() {}
-
-
 }
